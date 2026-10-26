@@ -39,7 +39,7 @@ if not os.path.exists(IMAGE_FILE):
     st.error(f"画像ファイル '{IMAGE_FILE}' が見つかりません。同じフォルダに配置してください。")
     st.stop()
 
-# セッション状態の初期化（クイズの順番や現在の位置を保持）
+# セッション状態の初期化
 if "quiz_list" not in st.session_state:
     shuffled = VERBS_DATA.copy()
     random.shuffle(shuffled)
@@ -51,9 +51,10 @@ if "quiz_list" not in st.session_state:
 current_idx = st.session_state.current_index
 quiz_item = st.session_state.quiz_list[current_idx]
 
+# 問題番号の表示
 st.subheader(f"第 {current_idx + 1} 問 / 全 20 問 (注目番号: 【 {quiz_item['num']}番 】)")
 
-# 画像の読み込みと赤枠の描画
+# 画像の読み込みと、該当枠の左上に「塗りつぶしなしの小さな赤丸（枠線のみ）」を描画
 orig_image = Image.open(IMAGE_FILE)
 img_w, img_h = orig_image.size
 
@@ -61,32 +62,39 @@ cell_w = img_w / 4
 cell_h = img_h / 5
 
 r, c = quiz_item["row"], quiz_item["col"]
-pad_x = int(cell_w * 0.12)
-pad_y = int(cell_h * 0.12)
 
-left = c * cell_w + pad_x
-top = r * cell_h + pad_y
-right = (c + 1) * cell_w - pad_x
-bottom = (r + 1) * cell_h - pad_y
+# 該当セルの左上の座標
+left = c * cell_w + int(cell_w * 0.08)
+top = r * cell_h + int(cell_h * 0.08)
+
+# 小さな丸のサイズ
+dot_radius = int(cell_w * 0.08)
 
 display_img = orig_image.copy()
 draw = ImageDraw.Draw(display_img)
-draw.rectangle([left, top, right, bottom], outline="#e74c3c", width=6)
+# 塗りつぶしなしの赤丸（枠線のみ）を描画
+draw.ellipse([left, top, left + dot_radius * 2, top + dot_radius * 2], outline="#e74c3c", width=5)
 
-# 画面幅に合わせて表示
 st.image(display_img, use_container_width=True)
 
 # 解答入力フォーム
 with st.form(key="answer_form"):
-    user_ans = st.text_input("ます形を入力してください:", key=f"ans_{current_idx}")
+    user_ans = st.text_input("ます形を入力してください（ひらがな・漢字どちらもOK）:", key=f"ans_{current_idx}")
     submit_button = st.form_submit_button(label="解答する")
 
     if submit_button:
-        clean_ans = user_ans.strip()
+        clean_ans = (
+            user_ans.strip()
+            .replace(" ", "")
+            .replace(" ", "")
+            .replace("。", "")
+            .replace("、", "")
+        )
+        
         if clean_ans == quiz_item["masu"] or clean_ans == quiz_item["hira"]:
-            st.session_state.feedback = f"⭕ 正解です！ ({quiz_item['num']}番: {quiz_item['masu']} / {quiz_item['english']})"
+            st.session_state.feedback = f"⭕ 正解です！ ({quiz_item['num']}番: {quiz_item['masu']} / {quiz_item['hira']})"
         else:
-            st.session_state.feedback = f"❌ 残念！ 正解は「{quiz_item['masu']}」 ({quiz_item['english']}) です"
+            st.session_state.feedback = f"❌ 残念！ 正解は「{quiz_item['masu']}（{quiz_item['hira']}）」 ({quiz_item['english']}) です"
 
 # フィードバック表示
 if st.session_state.feedback:
